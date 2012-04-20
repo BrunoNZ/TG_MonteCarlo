@@ -1,1 +1,18 @@
-Meu TG!
+Trabalho de conclusão do curso de Bacharelado em Ciência da Computação da
+UFPR (Universidade Federal do Paraná), realizado por "Bruno Nocera Zanette"
+e orientado pelo "Prof. Fabiano Silva" (http://www.inf.ufpr.br/fabiano/).
+
+Nesse trabalho irei testar a eficiência da linguagem CUDA para a implementação
+de algoritmos de ánalise e processamento de dados meteorológicos.
+
+Todos os codigos foram baseados no código original do mesmo programa
+existente no Laboratório de Física da UFPR (Universidade Federal do Paraná),
+dirigido pela Profa. Alice M. Grimm (grimm@fisica.ufpr.br).
+Portanto, antes do uso do mesmo para pesquisa deve ser feito uma requisição
+aos responsáveis.
+A minha linha de pesquisa apenas usa o algoritmo de Monte Carlo como
+exemplo para testar a eficiência da linguagem CUDA para implementar
+algoritmos de análise meteorológica.
+
+Agradecimentos à Profa. Alice M. Grimm por ceder os códigos fontes dos
+programas que esse trabalho é baseado.
