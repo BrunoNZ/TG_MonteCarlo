@@ -3,7 +3,7 @@ program correl_bin
 	implicit none
 
 	!Numero de permutacoes que serao feitas no teste Monte Carlo
-	integer, parameter	:: N_PERM=50
+	integer, parameter	:: N_PERM=500
 
 	!Declaracao das funcoes:
 	real*8:: correlacao_serie_serie,Sig_Monte_serie_serie
@@ -31,18 +31,18 @@ program correl_bin
 			!write(*,*) 'X: ',x,' / ','Y: ',y
 			
 			!CALCULA A CORRELACAO
-			!correl(x,y)=correlacao_serie_serie(dble(dados_serie),dble(dados_bin(x,y,:)),nt,undef)
+			correl(x,y)=correlacao_serie_serie(dble(dados_serie),dble(dados_bin(x,y,:)),nt,undef)
 			
 			!CALCULA A SIGNIFICANCIA PELO TESTE DE MONTE CARLO
-			signif(x,y)=Sig_Monte_serie_serie(dble(dados_bin(x,y,1:nt)),dble(dados_serie(1:nt)),nt,N_PERM,undef)
+			!signif(x,y)=Sig_Monte_serie_serie(dble(dados_bin(x,y,1:nt)),dble(dados_serie(1:nt)),nt,N_PERM,undef)
 			
 			!write(*,'(f10.6,1x,f10.6)') correl(x,y), signif(x,y)
 
 		enddo
 	enddo
 
-	!call salvar_arquivo(arq_cor,real(correl),nx,ny)
-	!call salvar_arquivo(arq_sig,real(signif),nx,ny)
+	call salvar_arquivo(arq_cor,real(correl),nx,ny)
+	call salvar_arquivo(arq_sig,real(signif),nx,ny)
 
 end program correl_bin
 

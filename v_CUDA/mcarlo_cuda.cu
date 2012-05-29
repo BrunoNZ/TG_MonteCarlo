@@ -192,7 +192,7 @@ void verifica_erro_cuda(char *F_ID, int ciclo){
 		cudaError_t erro = cudaGetLastError();
 		if(cudaSuccess != erro){
 			printf( "[CUDA_ERROR]: %s\n", cudaGetErrorString(erro) );
-			printf( "ID: %s (CICLO: %d)\n", F_ID, ciclo);
+			printf( "\tID: %s (CICLO: %d)\n", F_ID, ciclo);
 			desaloca_variaveis();
 			exit(1);
 		}
@@ -254,10 +254,6 @@ __device__ float correlacao_serie_serie(float *vA, float *vB, int nt, float unde
 	float E_cov, E_anm2_A, E_anm2_B, div;
 	float med_A, med_B;
 	
-	//CRIA DOIS VETORES AUXILIARES APENAS COM AS "DUPLAS" DE
-	//DADOS ONDE AMBOS OS VALORES NAO SEJAM INDEFINIDOS.
-	//ALEM DISSO JA FAZ O SOMATORIO DAS SERIES FINAIS PARA DEPOIS
-	//CALCULAR A MEDIA;
 	//*** k = Numero de duplas validas e tamanho total das series auxiliares ***
 	med_A=0.0;
 	med_B=0.0;
@@ -270,8 +266,7 @@ __device__ float correlacao_serie_serie(float *vA, float *vB, int nt, float unde
 			k++;
 		}
 	}
-	if (k < 2)
-		return (float)undef;
+	if (k < 2) return (float)undef;
 		
 	med_A=med_A/(float)k;
 	med_B=med_B/(float)k;
@@ -292,30 +287,29 @@ __device__ float correlacao_serie_serie(float *vA, float *vB, int nt, float unde
 }
 
 __global__ void sig_mcarlo_serie_serie(
-					float *vA, float *vB, int nt, float undef, int total_perm,
+					float *vA, float *vB, int NT, float undef, int total_perm,
 					int total_pos, float *saida){
 	
-	int i, cont;
+	int i, ini_seq, cont;
 	float correl_orig, correl;
 	
 	int p = (blockDim.x * blockIdx.x) + threadIdx.x;
 	if (p >= total_pos) return;
 	
-	correl_orig=correlacao_serie_serie(vA,vB,nt,undef);
+	ini_seq=(p*NT);
+	
+	correl_orig=correlacao_serie_serie(vA,(vB+ini_seq),NT,undef);
 
 	if (correl_orig == undef) saida[p]=undef;
 	
-	/*
 	//srand(time(NULL));
 	for (i=0;i<total_perm;i++){
-		//shuffle(vB,nt);
-		correl=correlacao_serie_serie(vA,vB,nt,undef);
+		//shuffle(vB,NT);
+		correl=correlacao_serie_serie(vA,(vB+ini_seq),NT,undef);
 		if (fabs(correl) >= fabs(correl_orig)) cont++;
 	}
-	*/
 	
-	//saida[p]=((float)cont/(float)total_perm)*(correl_orig*fabs(correl_orig));
-	saida[p]=(float)p;
+	saida[p]=((float)cont/(float)total_perm)*(correl_orig*fabs(correl_orig));
 }
 
 /*------------------------------------------------------------------*/
@@ -326,36 +320,37 @@ int main(int argc, char **argv){
 	int pos_i, total_npos, ciclo;
 	int pos_inicio_copia_entrada, pos_inicio_copia_saida;
 
-	//LE OS ARGUMENTOS E OS DADOS DE ENTRADA
+	//LE OS ARGUMENTOS
 	le_argumentos(argc,argv,&param);
 	imprime_argumentos(param);
-	
-	le_serie_entrada(param,&h_serie_entrada);
-	le_matriz_entrada(param,&h_matriz_entrada);
 	
 	//CALCULA OS PARAMETROS DE EXECUCAO
 	calcula_parametros_execucao(param, &param_exec);
 	imprime_parametros_execucao(param_exec);
-	
-	//CALCULA O NUMERO TOTAL DE POSICOES QUE SERAO CALCULADAS
-	// *** ESSE NUMERO PROVAVELMENTE SERA MAIOR QUE O NP
-	total_npos=param_exec.npos_por_ciclo*param_exec.total_ciclos;
+
+	//LE OS DADOS DE ENTRADA
+	le_serie_entrada(param,&h_serie_entrada);
+	le_matriz_entrada(param,&h_matriz_entrada);
 	
 	//ALOCA O ESPACO PARA OS DADOS DE ENTRADA E SAIDA NO DEVICE
 	cudaMalloc((void**)&d_serie_entrada, param.NT*sizeof(float) );
 		verifica_erro_cuda("cudaMalloc(d_serie_entrada)",-1);
 	cudaMalloc((void**)&d_matriz_entrada, param_exec.tam_por_ciclo );
 		verifica_erro_cuda("cudaMalloc(d_matriz_entrada)",-1);
-	cudaMalloc((void**)&d_saida, total_npos*sizeof(float) );
+	cudaMalloc((void**)&d_saida, param_exec.npos_por_ciclo*sizeof(float) );
 		verifica_erro_cuda("cudaMalloc(d_saida)",-1);
 	
 	//COPIA OS DADOS DA SERIE DE ENTRADA
 	cudaMemcpy(d_serie_entrada,h_serie_entrada,
 		param.NT*sizeof(float), cudaMemcpyHostToDevice);
 		verifica_erro_cuda("cudaMemcpy(d_serie_entrada)",-1);
+		
+	//CALCULA O NUMERO TOTAL DE POSICOES QUE SERAO CALCULADAS
+	// *** ESSE NUMERO PROVAVELMENTE SERA MAIOR QUE O NP
+	total_npos=param_exec.npos_por_ciclo*param_exec.total_ciclos;
 	
 	//ALOCA NO HOST O ESPACO PARA A SAIDA (TOTAL)
-	h_saida=(float*)malloc(param.NP*sizeof(float));
+	h_saida=(float*)malloc(total_npos*sizeof(float));
 
 	pos_i=0;
 	for (ciclo=0;ciclo<param_exec.total_ciclos;ciclo++){
@@ -367,40 +362,32 @@ int main(int argc, char **argv){
 			verifica_erro_cuda("cudaMemset(d_saida)",ciclo);
 
 		//CALCULA A POSICAO DE INICIO DA COPIA DOS DADOS DE ENTRADA
-		pos_inicio_copia_entrada=pos_i*param.NT;
-		
+		pos_inicio_copia_entrada=(ciclo*param_exec.npos_por_ciclo)*param.NT;
+				
 		//COPIA OS DADOS DA MATRIZ DE ENTRADA
 		cudaMemcpy(d_matriz_entrada,(h_matriz_entrada+pos_inicio_copia_entrada),
 			param_exec.tam_por_ciclo, cudaMemcpyHostToDevice);
 			verifica_erro_cuda("cudaMemcpy(d_matriz_entrada)",ciclo);
 
 		//EXECUTA O MCARLO EM CUDA
-		/*
 		sig_mcarlo_serie_serie<<<param_exec.blocos_por_grid, param_exec.threads_por_bloco>>>(
-			h_serie_entrada, h_matriz_entrada, param.NT, param.UNDEF, TOTAL_PERM,
+			d_serie_entrada, d_matriz_entrada, param.NT, param.UNDEF, TOTAL_PERM,
 			param_exec.npos_por_ciclo, d_saida);
 			verifica_erro_cuda("sig_mcarlo_serie_serie",ciclo);
-		*/
 			
 		//ESPERA O TERMINIO DA EXECUCAO DO DEVICE
 		cudaDeviceSynchronize();
 		
 		//CALCULA A POSICAO DE INICIO DA COPIA DOS DADOS DE SAIDA
 		pos_inicio_copia_saida=ciclo*param_exec.npos_por_ciclo;
-
+		
 		//COPIA A SAIDA DO DEVICE PARA O HOST
 		cudaMemcpy((h_saida+pos_inicio_copia_saida),d_saida,
 			param_exec.npos_por_ciclo*sizeof(float), cudaMemcpyDeviceToHost);
 			verifica_erro_cuda("cudaMemcpy(h_saida)",ciclo);
-		
-		//CALCULA A POSICAO INICIAL PARA O PROXIMO CICLO
-		pos_i=pos_i+param_exec.npos_por_ciclo;
 	}
 	
-	//for (ciclo=0;ciclo<param.NP;ciclo++)
-	//	printf("%d -> %f\n",ciclo,h_saida[ciclo]);
-	
-	//salva_arq_saida(param, h_saida);
+	salva_arq_saida(param, h_saida);
 	
 	desaloca_variaveis();
 	

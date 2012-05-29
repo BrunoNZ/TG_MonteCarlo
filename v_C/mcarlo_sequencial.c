@@ -59,6 +59,10 @@ void le_matriz_entrada(parametros param, float **d){
 		exit (1);
 	}
 	
+	buffer=(float*)malloc(param.NP*sizeof(float));
+
+	(*d)=(float*)malloc((param.NP*param.NT)*sizeof(float));
+	
 	/*
 	O arquivo binario esta organizado da seguinte maneira:
 	[1,1,1][2,1,1][3,1,1],...,[NX,1,1]
@@ -84,11 +88,7 @@ void le_matriz_entrada(parametros param, float **d){
 
 	Ou seja, varia varia primeiro o X, depois o Y, e por ultimo o T.
 	*/
-	
-	buffer=(float*)malloc(param.NP*sizeof(float));
-
-	(*d)=(float*)malloc((param.NP*param.NT)*sizeof(float));
-
+		
 	for (t=0;t<param.NT;t++){
 		fread(buffer,sizeof(float),param.NP,arq);
 
@@ -161,7 +161,11 @@ float correlacao_serie_serie(float *vA, float *vB, int nt, float undef){
 			k++;
 		}
 	}
-	if (k < 2) return (double)undef;
+	if (k < 2) {
+		free(vA_aux);
+		free(vB_aux);
+		return (double)undef;
+	}
 		
 	med_A=med_A/(double)k;
 	med_B=med_B/(double)k;
@@ -173,8 +177,7 @@ float correlacao_serie_serie(float *vA, float *vB, int nt, float undef){
 		E_anm2_A = E_anm2_A	+ (((double)vA_aux[i]-med_A)*((double)vA_aux[i]-med_A));
 		E_anm2_B = E_anm2_B	+ (((double)vB_aux[i]-med_B)*((double)vB_aux[i]-med_B));
 	}
-	
-	
+		
 	free(vA_aux);
 	free(vB_aux);
 	
@@ -208,24 +211,24 @@ float sig_mcarlo_serie_serie(float *vA, float *vB, int nt, float undef, int tota
 int main(int argc, char **argv){
 	
 	int p, pos;
-		
-	h_saida=(float *)malloc(param.NP*sizeof(float));
-	
+
 	//LE OS ARGUMENTOS E OS DADOS DE ENTRADA
 	le_argumentos(argc,argv,&param);
 	le_serie_entrada(param,&h_serie_entrada);
 	le_matriz_entrada(param,&h_matriz_entrada);
+	
+	h_saida=(float*)malloc(param.NP*sizeof(float));
 	
 	for (p=0; p<param.NP; p++){
 		pos=calcula_pos_matriz(param.NT, p, 0);
 		h_saida[p]=sig_mcarlo_serie_serie(h_serie_entrada, &(h_matriz_entrada[pos]),param.NT, param.UNDEF, TOTAL_PERM);
 	}
 	
-	//salva_arq_saida(param, h_saida);
+	salva_arq_saida(param, h_saida);
 	
-	free(h_serie_entrada);
 	free(h_matriz_entrada);
+	free(h_serie_entrada);
 	free(h_saida);
-	
+		
 	return 1;
 }
