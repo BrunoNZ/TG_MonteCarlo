@@ -195,7 +195,7 @@ float sig_mcarlo_serie_serie(float *vA, float *vB, int nt, float undef, int tota
 
 	if (correl_orig == undef) return undef;
 	
-	srand(time(NULL));
+	//srand(time(NULL));
 	for (i=0;i<total_perm;i++){
 		shuffle(vB,nt);
 		correl=correlacao_serie_serie(vA,vB,nt,undef);
