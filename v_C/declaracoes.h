@@ -6,7 +6,7 @@
 #include <time.h>
 
 //OPCOES DO PROGRAMA
-#define TOTAL_PERM 2000 //Numero de pesos laterais
+#define TOTAL_PERM 500 //Numero de pesos laterais
 
 #define _250MB 262144000 // 250MB
 #define _200MB 209715200 // 200MB
